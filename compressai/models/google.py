@@ -220,7 +220,7 @@ class ScaleHyperprior(CompressionModel):
             encoder and last layer of the hyperprior decoder)
     """
 
-    def __init__(self, N, M, **kwargs):
+    def __init__(self, N=128, M=512, **kwargs):
         super().__init__(entropy_bottleneck_channels=N, **kwargs)
 
         self.g_a = nn.Sequential(
@@ -230,11 +230,11 @@ class ScaleHyperprior(CompressionModel):
             GDN(N),
             conv(N, N),
             GDN(N),
-            conv(N, 512),
+            conv(N, M),
         )
 
         self.g_s = nn.Sequential(
-            deconv(512, N),
+            deconv(M, N),
             GDN(N, inverse=True),
             deconv(N, N),
             GDN(N, inverse=True),
@@ -244,7 +244,7 @@ class ScaleHyperprior(CompressionModel):
         )
 
         self.h_a = nn.Sequential(
-            conv(512, N, stride=1, kernel_size=3),
+            conv(M, N, stride=1, kernel_size=3),
             nn.ReLU(inplace=True),
             conv(N, N),
             nn.ReLU(inplace=True),
@@ -256,7 +256,7 @@ class ScaleHyperprior(CompressionModel):
             nn.ReLU(inplace=True),
             deconv(N, N),
             nn.ReLU(inplace=True),
-            conv(N, 512, stride=1, kernel_size=3),
+            conv(N, M, stride=1, kernel_size=3),
             nn.ReLU(inplace=True),
         )
 
@@ -329,8 +329,8 @@ class ScaleHyperprior(CompressionModel):
         self.conv2 = nn.Conv2d(32, 3, kernel_size=1, stride=1, padding=0, bias=False)
 
         self.gaussian_conditional = GaussianConditional(None)
-        self.N = int(128)
-        self.M = int(512)
+        self.N = N
+        self.M = M
 
     @property
     def downsampling_factor(self) -> int:
@@ -401,8 +401,17 @@ class ScaleHyperprior(CompressionModel):
         updated |= super().update(force=force)
         return updated
 
-    def compress(self, x):
-        y = self.g_a(x)
+    def compress(self, x, hidden1, hidden2, hidden3):
+        x = self.gdn1(self.conv(x))  # (1, 3, 64, 64) -> (1, 64, 32, 32)
+
+        hidden1 = self.rnn1(x, hidden1)
+        x = hidden1[0]  # (1, 64, 32, 32) -> (1, 256, 16, 16)
+
+        hidden2 = self.rnn2(x, hidden2)
+        x = hidden2[0]  # (1, 256, 16, 16) -> (1, 512, 8, 8)
+
+        hidden3 = self.rnn3(x, hidden3)
+        y = hidden3[0]  # y channel = 512 y.shape = (1, 512, 4, 4)
         z = self.h_a(torch.abs(y))
 
         z_strings = self.entropy_bottleneck.compress(z)
@@ -413,13 +422,31 @@ class ScaleHyperprior(CompressionModel):
         y_strings = self.gaussian_conditional.compress(y, indexes)
         return {"strings": [y_strings, z_strings], "shape": z.size()[-2:]}
 
-    def decompress(self, strings, shape):
+    def decompress(self, strings, shape, hidden4, hidden5, hidden6, hidden7):
         assert isinstance(strings, list) and len(strings) == 2
         z_hat = self.entropy_bottleneck.decompress(strings[1], shape)
         scales_hat = self.h_s(z_hat)
         indexes = self.gaussian_conditional.build_indexes(scales_hat)
         y_hat = self.gaussian_conditional.decompress(strings[0], indexes, z_hat.dtype)
-        x_hat = self.g_s(y_hat).clamp_(0, 1)
+
+        hidden4 = self.rnn4(y_hat, hidden4)
+        x = hidden4[0]  # (1, 512, 4, 4)
+        x = F.pixel_shuffle(x, 2)  # (1, 128, 8, 8)
+
+        hidden5 = self.rnn5(x, hidden5)
+        x = hidden5[0]  # (1, 512, 8, 8)
+        x = F.pixel_shuffle(x, 2)  # (1, 128, 16, 16)
+
+        hidden6 = self.rnn6(x, hidden6)
+        x = hidden6[0]  # (1, 256, 16, 16)
+        x = F.pixel_shuffle(x, 2)  # (1, 64, 32, 32)
+
+        hidden7 = self.rnn7(x, hidden7)
+        x = hidden7[0]  # (1, 128, 32, 32)
+        x = F.pixel_shuffle(x, 2)  # (1, 32, 64, 64)
+
+        x_hat = F.tanh(self.conv2(x)) / 2
+        x_hat = x_hat.clamp_(0, 1)
         return {"x_hat": x_hat}
 
 
