@@ -171,10 +171,8 @@ def test_epoch(epoch, test_dataloader, model, criterion):
     return loss.avg
 
 
-def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
+def save_checkpoint(state, filename="checkpoint.pth.tar"):
     torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, "checkpoint_best_loss.pth.tar")
 
 
 def parse_args(argv):
@@ -339,9 +337,20 @@ def main(argv):
                     "optimizer": optimizer.state_dict(),
                     "aux_optimizer": aux_optimizer.state_dict(),
                     "lr_scheduler": lr_scheduler.state_dict(),
-                },
-                is_best,
+                }
             )
+            if is_best:
+                save_checkpoint(
+                    {
+                        "epoch": epoch,
+                        "state_dict": net.module.state_dict(),
+                        "loss": loss,
+                        "optimizer": optimizer.state_dict(),
+                        "aux_optimizer": aux_optimizer.state_dict(),
+                        "lr_scheduler": lr_scheduler.state_dict(),
+                    },
+                    filename="checkpoint_best_loss.pth.tar"
+                )
 
 
 if __name__ == "__main__":
