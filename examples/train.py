@@ -344,7 +344,7 @@ def main(argv):
                 save_checkpoint(
                     {
                         "epoch": epoch,
-                        "state_dict": net.module.state_dict(),
+                        "state_dict": net.state_dict(),
                         "loss": loss,
                         "optimizer": optimizer.state_dict(),
                         "aux_optimizer": aux_optimizer.state_dict(),
