@@ -28,6 +28,7 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+import os
 import random
 import shutil
 import sys
@@ -172,7 +173,7 @@ def test_epoch(epoch, test_dataloader, model, criterion):
 
 
 def save_checkpoint(state, filename="checkpoint.pth.tar"):
-    torch.save(state, filename)
+    torch.save(state, os.path.join('checkpoint', filename))
 
 
 def parse_args(argv):
