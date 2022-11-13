@@ -43,6 +43,7 @@ from torchvision import transforms
 from compressai.datasets import ImageFolder
 from compressai.losses import RateDistortionLoss
 from compressai.zoo import image_models
+from compressai.models.google import ScaleHyperprior
 
 
 class AverageMeter:
@@ -291,7 +292,7 @@ def main(argv):
         pin_memory=(device == "cuda"),
     )
 
-    net = image_models[args.model](quality=3)
+    net = ScaleHyperprior()
     net = net.to(device)
 
     if args.cuda and torch.cuda.device_count() > 1:

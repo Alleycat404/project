@@ -1,8 +1,10 @@
 import torch
-from google import ScaleHyperprior
+# from google import ScaleHyperprior
 
 model = torch.load('checkpoint_best_loss.pth.tar')
-print(model)
 
-mod = ScaleHyperprior()
-mod.load_state_dict(model)
+for k, v in model['state_dict'].items():
+  print(k)
+
+# mod = ScaleHyperprior()
+# mod.load_state_dict(model)
