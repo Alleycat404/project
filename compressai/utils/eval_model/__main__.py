@@ -52,6 +52,7 @@ import compressai
 from compressai.zoo import image_models as pretrained_models
 from compressai.zoo import load_state_dict
 from compressai.zoo.image import model_architectures as architectures
+from torch.autograd import Variable
 
 torch.backends.cudnn.deterministic = True
 torch.set_num_threads(1)
@@ -100,6 +101,24 @@ def read_image(filepath: str) -> torch.Tensor:
 
 @torch.no_grad()
 def inference(model, x):
+
+    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
+             Variable(torch.zeros(1, 256, 16, 16).cuda()))
+    # print(encoder_h_1)
+    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
+             Variable(torch.zeros(1, 512, 8, 8).cuda()))
+    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
+             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+
+    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
+             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
+             Variable(torch.zeros(1, 512, 8, 8).cuda()))
+    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
+             Variable(torch.zeros(1, 256, 16, 16).cuda()))
+    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32).cuda()),
+             Variable(torch.zeros(1, 128, 32, 32).cuda()))
+
     x = x.unsqueeze(0)
 
     h, w = x.size(2), x.size(3)
@@ -118,11 +137,11 @@ def inference(model, x):
     )
 
     start = time.time()
-    out_enc = model.compress(x_padded)
+    out_enc = model.compress(x_padded, x_h_1, x_h_2, x_h_3)
     enc_time = time.time() - start
 
     start = time.time()
-    out_dec = model.decompress(out_enc["strings"], out_enc["shape"])
+    out_dec = model.decompress(out_enc["strings"], out_enc["shape"], x_h_4, x_h_5, x_h_6, x_h_7)
     dec_time = time.time() - start
 
     out_dec["x_hat"] = F.pad(
