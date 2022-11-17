@@ -327,6 +327,7 @@ class ScaleHyperprior(CompressionModel):
             bias=False)
 
         self.conv2 = nn.Conv2d(32, 3, kernel_size=1, stride=1, padding=0, bias=False)
+        self.igdn1 = GDN(512, inverse=True)
 
         self.gaussian_conditional = GaussianConditional(None)
         self.N = N
@@ -352,6 +353,8 @@ class ScaleHyperprior(CompressionModel):
         z_hat, z_likelihoods = self.entropy_bottleneck(z)
         scales_hat = self.h_s(z_hat)  # scales_hat.shape(1, 512, 4, 4)
         y_hat, y_likelihoods = self.gaussian_conditional(y, scales_hat)
+
+        y_hat = self.igdn1(y_hat)
 
         hidden4 = self.rnn4(y_hat, hidden4)
         x = hidden4[0]  # (1, 512, 4, 4)
