@@ -41,7 +41,7 @@ import torch
 import torch.nn.functional as F
 
 from PIL import Image
-from torch import Tensor
+from torch import Tensor, nn
 from torch.autograd import Variable
 from torch.utils.model_zoo import tqdm
 from torchvision.transforms import ToPILImage, ToTensor
@@ -56,6 +56,8 @@ from compressai.transforms.functional import (
     yuv_444_to_420,
 )
 from compressai.zoo import image_models, models
+from compressai.zoo.image import model_architectures as architectures
+from compressai.zoo import load_state_dict
 
 torch.backends.cudnn.deterministic = True
 
@@ -79,6 +81,10 @@ class CodecInfo(NamedTuple):
     net: Dict
     device: str
 
+
+def load_checkpoint(arch: str, checkpoint_path: str) -> nn.Module:
+    state_dict = load_state_dict(torch.load(checkpoint_path))
+    return architectures[arch].from_state_dict(state_dict).eval()
 
 def BoolConvert(a):
     b = [False, True]
@@ -401,10 +407,9 @@ def _encode(input, num_of_frames, model, metric, quality, coder, device, output)
 
     start = time.time()
     model_info = models[model]
-    net = model_info(quality=quality, metric=metric, pretrained=False).to(device).eval()
-    codec_type = (
-        CodecType.IMAGE_CODEC if model in image_models else CodecType.VIDEO_CODEC
-    )
+    # net = model_info(quality=quality, metric=metric, pretrained=False).to(device).eval()
+    codec_type = CodecType.IMAGE_CODEC
+    net = load_checkpoint(model, "bmshj2018-hyperprior")
 
     codec_header_info = get_header(model, metric, quality, num_of_frames, codec_type)
     load_time = time.time() - start
@@ -428,7 +433,6 @@ def decode_image(f, codec: CodecInfo, output):
 
     x_h_1 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
              Variable(torch.zeros(1, 256, 16, 16).cuda()))
-    # print(encoder_h_1)
     x_h_2 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
              Variable(torch.zeros(1, 512, 8, 8).cuda()))
     x_h_3 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
@@ -522,14 +526,13 @@ def _decode(inputpath, coder, show, device, output=None):
 
         start = time.time()
         model_info = models[model]
-        net = (
-            model_info(quality=quality, metric=metric, pretrained=False)
-            .to(device)
-            .eval()
-        )
-        codec_type = (
-            CodecType.IMAGE_CODEC if model in image_models else CodecType.VIDEO_CODEC
-        )
+        # net = (
+        #     model_info(quality=quality, metric=metric, pretrained=False)
+        #     .to(device)
+        #     .eval()
+        # )
+        codec_type = CodecType.IMAGE_CODEC
+        net = load_checkpoint(model, "bmshj2018-hyperprior")
 
         load_time = time.time() - start
         print(f"Model: {model:s}, metric: {metric:s}, quality: {quality:d}")
@@ -572,9 +575,8 @@ def encode(argv):
     )
     parser.add_argument(
         "--model",
-        choices=models.keys(),
         default=list(models.keys())[0],
-        help="NN model to use (default: %(default)s)",
+        help="trained model path",
     )
     parser.add_argument(
         "-m",
