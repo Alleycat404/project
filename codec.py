@@ -411,7 +411,7 @@ def _encode(input, num_of_frames, model, metric, quality, coder, device, output)
     codec_type = CodecType.IMAGE_CODEC
     net = load_checkpoint("bmshj2018-hyperprior", model)
 
-    codec_header_info = get_header(model, metric, quality, num_of_frames, codec_type)
+    codec_header_info = get_header("bmshj2018-hyperprior", metric, quality, num_of_frames, codec_type)
     load_time = time.time() - start
 
     if not Path(input).is_file():
