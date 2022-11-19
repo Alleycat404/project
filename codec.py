@@ -42,6 +42,7 @@ import torch.nn.functional as F
 
 from PIL import Image
 from torch import Tensor
+from torch.autograd import Variable
 from torch.utils.model_zoo import tqdm
 from torchvision.transforms import ToPILImage, ToTensor
 
@@ -287,8 +288,25 @@ def encode_image(input, codec: CodecInfo, output):
     p = 64  # maximum 6 strides of 2
     x = pad(x, p)
 
+    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
+             Variable(torch.zeros(1, 256, 16, 16).cuda()))
+    # print(encoder_h_1)
+    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
+             Variable(torch.zeros(1, 512, 8, 8).cuda()))
+    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
+             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+
+    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
+             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
+             Variable(torch.zeros(1, 512, 8, 8).cuda()))
+    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
+             Variable(torch.zeros(1, 256, 16, 16).cuda()))
+    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32).cuda()),
+             Variable(torch.zeros(1, 128, 32, 32).cuda()))
+
     with torch.no_grad():
-        out = codec.net.compress(x)
+        out = codec.net.compress(x, x_h_1, x_h_2, x_h_3)
 
     shape = out["shape"]
 
@@ -383,7 +401,7 @@ def _encode(input, num_of_frames, model, metric, quality, coder, device, output)
 
     start = time.time()
     model_info = models[model]
-    net = model_info(quality=quality, metric=metric, pretrained=True).to(device).eval()
+    net = model_info(quality=quality, metric=metric, pretrained=False).to(device).eval()
     codec_type = (
         CodecType.IMAGE_CODEC if model in image_models else CodecType.VIDEO_CODEC
     )
@@ -407,8 +425,26 @@ def _encode(input, num_of_frames, model, metric, quality, coder, device, output)
 
 def decode_image(f, codec: CodecInfo, output):
     strings, shape = read_body(f)
+
+    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
+             Variable(torch.zeros(1, 256, 16, 16).cuda()))
+    # print(encoder_h_1)
+    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
+             Variable(torch.zeros(1, 512, 8, 8).cuda()))
+    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
+             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+
+    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
+             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
+             Variable(torch.zeros(1, 512, 8, 8).cuda()))
+    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
+             Variable(torch.zeros(1, 256, 16, 16).cuda()))
+    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32).cuda()),
+             Variable(torch.zeros(1, 128, 32, 32).cuda()))
+
     with torch.no_grad():
-        out = codec.net.decompress(strings, shape)
+        out = codec.net.decompress(strings, shape, x_h_4, x_h_5, x_h_6, x_h_7)
 
     x_hat = crop(out["x_hat"], codec.original_size)
 
@@ -487,7 +523,7 @@ def _decode(inputpath, coder, show, device, output=None):
         start = time.time()
         model_info = models[model]
         net = (
-            model_info(quality=quality, metric=metric, pretrained=True)
+            model_info(quality=quality, metric=metric, pretrained=False)
             .to(device)
             .eval()
         )
