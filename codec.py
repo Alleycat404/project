@@ -294,22 +294,22 @@ def encode_image(input, codec: CodecInfo, output):
     p = 64  # maximum 6 strides of 2
     x = pad(x, p)
 
-    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
-             Variable(torch.zeros(1, 256, 16, 16).cuda()))
+    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16)),
+             Variable(torch.zeros(1, 256, 16, 16)))
     # print(encoder_h_1)
-    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
-             Variable(torch.zeros(1, 512, 8, 8).cuda()))
-    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
-             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8)),
+             Variable(torch.zeros(1, 512, 8, 8)))
+    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4)),
+             Variable(torch.zeros(1, 512, 4, 4)))
 
-    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
-             Variable(torch.zeros(1, 512, 4, 4).cuda()))
-    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
-             Variable(torch.zeros(1, 512, 8, 8).cuda()))
-    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
-             Variable(torch.zeros(1, 256, 16, 16).cuda()))
-    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32).cuda()),
-             Variable(torch.zeros(1, 128, 32, 32).cuda()))
+    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4)),
+             Variable(torch.zeros(1, 512, 4, 4)))
+    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8)),
+             Variable(torch.zeros(1, 512, 8, 8)))
+    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16)),
+             Variable(torch.zeros(1, 256, 16, 16)))
+    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32)),
+             Variable(torch.zeros(1, 128, 32, 32)))
 
     with torch.no_grad():
         out = codec.net.compress(x, x_h_1, x_h_2, x_h_3)
@@ -431,21 +431,21 @@ def _encode(input, num_of_frames, model, metric, quality, coder, device, output)
 def decode_image(f, codec: CodecInfo, output):
     strings, shape = read_body(f)
 
-    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
-             Variable(torch.zeros(1, 256, 16, 16).cuda()))
-    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
-             Variable(torch.zeros(1, 512, 8, 8).cuda()))
-    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
-             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16)),
+             Variable(torch.zeros(1, 256, 16, 16)))
+    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8)),
+             Variable(torch.zeros(1, 512, 8, 8)))
+    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4)),
+             Variable(torch.zeros(1, 512, 4, 4)))
 
-    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
-             Variable(torch.zeros(1, 512, 4, 4).cuda()))
-    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
-             Variable(torch.zeros(1, 512, 8, 8).cuda()))
-    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
-             Variable(torch.zeros(1, 256, 16, 16).cuda()))
-    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32).cuda()),
-             Variable(torch.zeros(1, 128, 32, 32).cuda()))
+    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4)),
+             Variable(torch.zeros(1, 512, 4, 4)))
+    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8)),
+             Variable(torch.zeros(1, 512, 8, 8)))
+    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16)),
+             Variable(torch.zeros(1, 256, 16, 16)))
+    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32)),
+             Variable(torch.zeros(1, 128, 32, 32)))
 
     with torch.no_grad():
         out = codec.net.decompress(strings, shape, x_h_4, x_h_5, x_h_6, x_h_7)
