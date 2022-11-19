@@ -509,7 +509,7 @@ def decode_video(f, codec: CodecInfo, output):
     return {"img": img, "avg_frm_dec_time": np.mean(avg_frame_dec_time)}
 
 
-def _decode(inputpath, coder, show, device, output=None):
+def _decode(inputpath, model, coder, show, device, output=None):
     decode_func = {
         CodecType.IMAGE_CODEC: decode_image,
         CodecType.VIDEO_CODEC: decode_video,
@@ -519,13 +519,15 @@ def _decode(inputpath, coder, show, device, output=None):
 
     dec_start = time.time()
     with Path(inputpath).open("rb") as f:
-        model, metric, quality = parse_header(read_uchars(f, 2))
+        # model, metric, quality = parse_header(read_uchars(f, 2))
+        metric = 'mse'
+        quality = 3
 
         original_size = read_uints(f, 2)
         original_bitdepth = read_uchars(f, 1)[0]
 
         start = time.time()
-        model_info = models[model]
+        # model_info = models[model]
         # net = (
         #     model_info(quality=quality, metric=metric, pretrained=False)
         #     .to(device)
@@ -622,6 +624,7 @@ def encode(argv):
 def decode(argv):
     parser = argparse.ArgumentParser(description="Decode bit-stream to image/video")
     parser.add_argument("input", type=str)
+    parser.add_argument("--model", help="trained model path")
     parser.add_argument(
         "-c",
         "--coder",
@@ -634,7 +637,7 @@ def decode(argv):
     parser.add_argument("--cuda", action="store_true", help="Use cuda")
     args = parser.parse_args(argv)
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
-    _decode(args.input, args.coder, args.show, device, args.output)
+    _decode(args.input, args.model, args.coder, args.show, device, args.output)
 
 
 def parse_args(argv):
