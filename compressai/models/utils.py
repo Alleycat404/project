@@ -88,10 +88,10 @@ def _update_registered_buffer(
 
 
 def update_registered_buffers(
-    module,
-    module_name,
-    buffer_names,
-    state_dict,
+    module,  # self.entropy_bottleneck
+    module_name,  # "entropy_bottleneck"
+    buffer_names,  # ["_quantized_cdf", "_offset", "_cdf_length"]
+    state_dict,  # state_dict
     policy="resize_if_empty",
     dtype=torch.int,
 ):

@@ -28,9 +28,11 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+import os
 import random
 import shutil
 import sys
+from torch.autograd import Variable
 
 import torch
 import torch.nn as nn
@@ -42,6 +44,7 @@ from torchvision import transforms
 from compressai.datasets import ImageFolder
 from compressai.losses import RateDistortionLoss
 from compressai.zoo import image_models
+from compressai.models.google import ScaleHyperprior
 
 
 class AverageMeter:
@@ -105,7 +108,7 @@ def configure_optimizers(net, args):
 
 
 def train_one_epoch(
-    model, criterion, train_dataloader, optimizer, aux_optimizer, epoch, clip_max_norm
+    model, criterion, train_dataloader, optimizer, aux_optimizer, epoch, clip_max_norm, x_h_1, x_h_2, x_h_3, x_h_4, x_h_5, x_h_6, x_h_7
 ):
     model.train()
     device = next(model.parameters()).device
@@ -116,7 +119,7 @@ def train_one_epoch(
         optimizer.zero_grad()
         aux_optimizer.zero_grad()
 
-        out_net = model(d)
+        out_net = model(d, x_h_1, x_h_2, x_h_3, x_h_4, x_h_5, x_h_6, x_h_7)
 
         out_criterion = criterion(out_net, d)
         out_criterion["loss"].backward()
@@ -140,7 +143,7 @@ def train_one_epoch(
             )
 
 
-def test_epoch(epoch, test_dataloader, model, criterion):
+def test_epoch(epoch, test_dataloader, model, criterion, x_h_1, x_h_2, x_h_3, x_h_4, x_h_5, x_h_6, x_h_7):
     model.eval()
     device = next(model.parameters()).device
 
@@ -152,7 +155,7 @@ def test_epoch(epoch, test_dataloader, model, criterion):
     with torch.no_grad():
         for d in test_dataloader:
             d = d.to(device)
-            out_net = model(d)
+            out_net = model(d, x_h_1, x_h_2, x_h_3, x_h_4, x_h_5, x_h_6, x_h_7)
             out_criterion = criterion(out_net, d)
 
             aux_loss.update(model.aux_loss())
@@ -171,10 +174,8 @@ def test_epoch(epoch, test_dataloader, model, criterion):
     return loss.avg
 
 
-def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
-    torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, "checkpoint_best_loss.pth.tar")
+def save_checkpoint(state, filename="checkpoint.pth.tar"):
+    torch.save(state, os.path.join('checkpoint', filename))
 
 
 def parse_args(argv):
@@ -292,7 +293,7 @@ def main(argv):
         pin_memory=(device == "cuda"),
     )
 
-    net = image_models[args.model](quality=3)
+    net = ScaleHyperprior(128, 512)
     net = net.to(device)
 
     if args.cuda and torch.cuda.device_count() > 1:
@@ -313,6 +314,23 @@ def main(argv):
         lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
     best_loss = float("inf")
+
+    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
+             Variable(torch.zeros(1, 256, 16, 16).cuda()))
+    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
+             Variable(torch.zeros(1, 512, 8, 8).cuda()))
+    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
+             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+
+    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4).cuda()),
+             Variable(torch.zeros(1, 512, 4, 4).cuda()))
+    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8).cuda()),
+             Variable(torch.zeros(1, 512, 8, 8).cuda()))
+    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16).cuda()),
+             Variable(torch.zeros(1, 256, 16, 16).cuda()))
+    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32).cuda()),
+             Variable(torch.zeros(1, 128, 32, 32).cuda()))
+
     for epoch in range(last_epoch, args.epochs):
         print(f"Learning rate: {optimizer.param_groups[0]['lr']}")
         train_one_epoch(
@@ -323,8 +341,9 @@ def main(argv):
             aux_optimizer,
             epoch,
             args.clip_max_norm,
+            x_h_1, x_h_2, x_h_3, x_h_4, x_h_5, x_h_6, x_h_7
         )
-        loss = test_epoch(epoch, test_dataloader, net, criterion)
+        loss = test_epoch(epoch, test_dataloader, net, criterion, x_h_1, x_h_2, x_h_3, x_h_4, x_h_5, x_h_6, x_h_7)
         lr_scheduler.step(loss)
 
         is_best = loss < best_loss
@@ -339,9 +358,20 @@ def main(argv):
                     "optimizer": optimizer.state_dict(),
                     "aux_optimizer": aux_optimizer.state_dict(),
                     "lr_scheduler": lr_scheduler.state_dict(),
-                },
-                is_best,
+                }
             )
+            if is_best:
+                save_checkpoint(
+                    {
+                        "epoch": epoch,
+                        "state_dict": net.state_dict(),
+                        "loss": loss,
+                        "optimizer": optimizer.state_dict(),
+                        "aux_optimizer": aux_optimizer.state_dict(),
+                        "lr_scheduler": lr_scheduler.state_dict(),
+                    },
+                    filename="checkpoint_best_loss.pth.tar"
+                )
 
 
 if __name__ == "__main__":

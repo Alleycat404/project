@@ -41,7 +41,8 @@ import torch
 import torch.nn.functional as F
 
 from PIL import Image
-from torch import Tensor
+from torch import Tensor, nn
+from torch.autograd import Variable
 from torch.utils.model_zoo import tqdm
 from torchvision.transforms import ToPILImage, ToTensor
 
@@ -55,6 +56,8 @@ from compressai.transforms.functional import (
     yuv_444_to_420,
 )
 from compressai.zoo import image_models, models
+from compressai.zoo.image import model_architectures as architectures
+from compressai.zoo import load_state_dict
 
 torch.backends.cudnn.deterministic = True
 
@@ -78,6 +81,10 @@ class CodecInfo(NamedTuple):
     net: Dict
     device: str
 
+
+def load_checkpoint(arch: str, checkpoint_path: str) -> nn.Module:
+    state_dict = load_state_dict(torch.load(checkpoint_path))
+    return architectures[arch].from_state_dict(state_dict).eval()
 
 def BoolConvert(a):
     b = [False, True]
@@ -287,8 +294,25 @@ def encode_image(input, codec: CodecInfo, output):
     p = 64  # maximum 6 strides of 2
     x = pad(x, p)
 
+    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16)),
+             Variable(torch.zeros(1, 256, 16, 16)))
+    # print(encoder_h_1)
+    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8)),
+             Variable(torch.zeros(1, 512, 8, 8)))
+    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4)),
+             Variable(torch.zeros(1, 512, 4, 4)))
+
+    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4)),
+             Variable(torch.zeros(1, 512, 4, 4)))
+    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8)),
+             Variable(torch.zeros(1, 512, 8, 8)))
+    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16)),
+             Variable(torch.zeros(1, 256, 16, 16)))
+    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32)),
+             Variable(torch.zeros(1, 128, 32, 32)))
+
     with torch.no_grad():
-        out = codec.net.compress(x)
+        out = codec.net.compress(x, x_h_1, x_h_2, x_h_3)
 
     shape = out["shape"]
 
@@ -382,13 +406,12 @@ def _encode(input, num_of_frames, model, metric, quality, coder, device, output)
     enc_start = time.time()
 
     start = time.time()
-    model_info = models[model]
-    net = model_info(quality=quality, metric=metric, pretrained=True).to(device).eval()
-    codec_type = (
-        CodecType.IMAGE_CODEC if model in image_models else CodecType.VIDEO_CODEC
-    )
+    # model_info = models[model]
+    # net = model_info(quality=quality, metric=metric, pretrained=False).to(device).eval()
+    codec_type = CodecType.IMAGE_CODEC
+    net = load_checkpoint("bmshj2018-hyperprior", model)
 
-    codec_header_info = get_header(model, metric, quality, num_of_frames, codec_type)
+    codec_header_info = get_header("bmshj2018-hyperprior", metric, quality, num_of_frames, codec_type)
     load_time = time.time() - start
 
     if not Path(input).is_file():
@@ -407,8 +430,25 @@ def _encode(input, num_of_frames, model, metric, quality, coder, device, output)
 
 def decode_image(f, codec: CodecInfo, output):
     strings, shape = read_body(f)
+
+    x_h_1 = (Variable(torch.zeros(1, 256, 16, 16)),
+             Variable(torch.zeros(1, 256, 16, 16)))
+    x_h_2 = (Variable(torch.zeros(1, 512, 8, 8)),
+             Variable(torch.zeros(1, 512, 8, 8)))
+    x_h_3 = (Variable(torch.zeros(1, 512, 4, 4)),
+             Variable(torch.zeros(1, 512, 4, 4)))
+
+    x_h_4 = (Variable(torch.zeros(1, 512, 4, 4)),
+             Variable(torch.zeros(1, 512, 4, 4)))
+    x_h_5 = (Variable(torch.zeros(1, 512, 8, 8)),
+             Variable(torch.zeros(1, 512, 8, 8)))
+    x_h_6 = (Variable(torch.zeros(1, 256, 16, 16)),
+             Variable(torch.zeros(1, 256, 16, 16)))
+    x_h_7 = (Variable(torch.zeros(1, 128, 32, 32)),
+             Variable(torch.zeros(1, 128, 32, 32)))
+
     with torch.no_grad():
-        out = codec.net.decompress(strings, shape)
+        out = codec.net.decompress(strings, shape, x_h_4, x_h_5, x_h_6, x_h_7)
 
     x_hat = crop(out["x_hat"], codec.original_size)
 
@@ -469,7 +509,7 @@ def decode_video(f, codec: CodecInfo, output):
     return {"img": img, "avg_frm_dec_time": np.mean(avg_frame_dec_time)}
 
 
-def _decode(inputpath, coder, show, device, output=None):
+def _decode(inputpath, model, coder, show, device, output=None):
     decode_func = {
         CodecType.IMAGE_CODEC: decode_image,
         CodecType.VIDEO_CODEC: decode_video,
@@ -479,21 +519,22 @@ def _decode(inputpath, coder, show, device, output=None):
 
     dec_start = time.time()
     with Path(inputpath).open("rb") as f:
-        model, metric, quality = parse_header(read_uchars(f, 2))
+        # model, metric, quality = parse_header(read_uchars(f, 2))
+        metric = 'mse'
+        quality = 3
 
         original_size = read_uints(f, 2)
         original_bitdepth = read_uchars(f, 1)[0]
 
         start = time.time()
-        model_info = models[model]
-        net = (
-            model_info(quality=quality, metric=metric, pretrained=True)
-            .to(device)
-            .eval()
-        )
-        codec_type = (
-            CodecType.IMAGE_CODEC if model in image_models else CodecType.VIDEO_CODEC
-        )
+        # model_info = models[model]
+        # net = (
+        #     model_info(quality=quality, metric=metric, pretrained=False)
+        #     .to(device)
+        #     .eval()
+        # )
+        codec_type = CodecType.IMAGE_CODEC
+        net = load_checkpoint("bmshj2018-hyperprior", model)
 
         load_time = time.time() - start
         print(f"Model: {model:s}, metric: {metric:s}, quality: {quality:d}")
@@ -536,9 +577,8 @@ def encode(argv):
     )
     parser.add_argument(
         "--model",
-        choices=models.keys(),
         default=list(models.keys())[0],
-        help="NN model to use (default: %(default)s)",
+        help="trained model path",
     )
     parser.add_argument(
         "-m",
@@ -584,6 +624,7 @@ def encode(argv):
 def decode(argv):
     parser = argparse.ArgumentParser(description="Decode bit-stream to image/video")
     parser.add_argument("input", type=str)
+    parser.add_argument("--model", help="trained model path")
     parser.add_argument(
         "-c",
         "--coder",
@@ -596,7 +637,7 @@ def decode(argv):
     parser.add_argument("--cuda", action="store_true", help="Use cuda")
     args = parser.parse_args(argv)
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
-    _decode(args.input, args.coder, args.show, device, args.output)
+    _decode(args.input, args.model, args.coder, args.show, device, args.output)
 
 
 def parse_args(argv):
