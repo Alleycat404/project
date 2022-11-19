@@ -406,10 +406,10 @@ def _encode(input, num_of_frames, model, metric, quality, coder, device, output)
     enc_start = time.time()
 
     start = time.time()
-    model_info = models[model]
+    # model_info = models[model]
     # net = model_info(quality=quality, metric=metric, pretrained=False).to(device).eval()
     codec_type = CodecType.IMAGE_CODEC
-    net = load_checkpoint(model, "bmshj2018-hyperprior")
+    net = load_checkpoint("bmshj2018-hyperprior", model)
 
     codec_header_info = get_header(model, metric, quality, num_of_frames, codec_type)
     load_time = time.time() - start
@@ -532,7 +532,7 @@ def _decode(inputpath, coder, show, device, output=None):
         #     .eval()
         # )
         codec_type = CodecType.IMAGE_CODEC
-        net = load_checkpoint(model, "bmshj2018-hyperprior")
+        net = load_checkpoint("bmshj2018-hyperprior", model)
 
         load_time = time.time() - start
         print(f"Model: {model:s}, metric: {metric:s}, quality: {quality:d}")
